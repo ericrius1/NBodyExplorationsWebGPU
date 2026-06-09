@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>n-body · webgpu</title>
+    <style>
+      :root { color-scheme: dark; }
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      #gpu-canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+      #no-webgpu {
+        position: fixed; inset: 0; display: none; place-items: center;
+        color: #ddd; font: 14px/1.5 ui-monospace, monospace; text-align: center; padding: 2rem;
+      }
+      .tp-dfwv { z-index: 10; }
+    </style>
+  </head>
+  <body>
+    <canvas id="gpu-canvas"></canvas>
+    <div id="no-webgpu">
+      WebGPU not available.<br />Use Chrome/Edge 113+ or enable the flag, then reload.
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "nbody-webgpu",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "lint": "oxlint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "tweakpane": "^4.0.5"
+  },
+  "devDependencies": {
+    "@tweakpane/core": "^2.0.5",
+    "@webgpu/types": "^0.1.52",
+    "oxlint": "^0.15.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}
