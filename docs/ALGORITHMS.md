@@ -5,11 +5,24 @@ every other body, with a softening term to avoid singularities at close range.
 
 ```
 a_i = G * Σ_j  m_j * (p_j - p_i) / (|p_j - p_i|² + ε²)^{3/2}
-v_i += a_i · dt ;  v_i *= damping ;  p_i += v_i · dt
+v_i += a_i · dt ;  v_i *= damping ;  clamp |v_i| ≤ maxSpeed ;  p_i += v_i · dt
 ```
 
-`ε²` is the `softening` control, `damping` bleeds energy (1.0 = none). The two
-solvers differ only in how the sum over `j` is computed.
+`ε²` is the `softening` control, `damping` bleeds energy (1.0 = none). Both
+solvers share one integrator (`integrate()` logic inlined in each kernel) with
+two stability measures that keep motion graceful across the parameter space:
+
+- **softening** keeps the `(r² + ε²)^{3/2}` denominator away from zero, so a close
+  encounter can no longer produce a near-infinite force. Larger `ε` = softer,
+  smoother cores.
+- **maxSpeed** clamps the post-integration velocity magnitude, so even if a body
+  does get a large kick it cannot slingshot across the screen in one step. This is
+  what removes the "glitchy" teleporting at high gravity / small softening.
+
+A mild `damping` (< 1) additionally bleeds the kinetic energy that gravitational
+collapse converts from potential energy, so the system settles into flowing
+structure instead of heating up into chaos. The two solvers differ only in how
+the sum over `j` is computed.
 
 ## Naive O(n²) — `shaders/naive.wgsl`
 

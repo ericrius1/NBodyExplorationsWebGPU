@@ -202,6 +202,7 @@ export class Engine {
     dv.setFloat32(12, config.softening, true);
     dv.setFloat32(16, config.theta, true);
     dv.setFloat32(20, config.damping, true);
+    dv.setFloat32(24, config.maxSpeed, true);
     this.dev.queue.writeBuffer(this.simParams, 0, buf);
   }
 

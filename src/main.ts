@@ -30,6 +30,10 @@ async function start(): Promise<void> {
     reset: () => engine.rebuild(),
   });
 
+  if (import.meta.env.DEV) {
+    (window as unknown as { engine: Engine }).engine = engine;
+  }
+
   const loop = (): void => {
     engine.frame();
     requestAnimationFrame(loop);

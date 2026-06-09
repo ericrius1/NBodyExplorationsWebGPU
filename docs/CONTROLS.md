@@ -37,7 +37,10 @@ pattern in [docs.md/tweakpane-controls.md](docs.md/tweakpane-controls.md).
 - `dt` — integration time step.
 - `softening` — `ε`, smooths close-range forces.
 - `theta (BH)` — Barnes–Hut accuracy/speed trade-off (smaller = more accurate).
-- `damping` — per-step velocity multiplier (1.0 = energy conserving).
+- `damping` — per-step velocity multiplier (1.0 = energy conserving). Default 0.999
+  gently bleeds collapse energy.
+- `max speed` — hard cap on velocity magnitude; prevents close-encounter
+  slingshots. The main knob keeping motion graceful at high gravity.
 
 **Spawn** (re-seed on release)
 - `spawnRadius`, `initialSpeed` — disk size and tangential speed.

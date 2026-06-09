@@ -5,7 +5,7 @@ struct SimParams {
   softening: f32,
   theta: f32,
   damping: f32,
-  pad0: f32,
+  maxSpeed: f32,
   pad1: f32,
 }
 
@@ -64,6 +64,10 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   }
 
   vel = (vel + acc * P.dt) * P.damping;
+  let spd = length(vel);
+  if (spd > P.maxSpeed) {
+    vel = vel * (P.maxSpeed / spd);
+  }
   let np = pos + vel * P.dt;
   outBodies[i] = vec4f(np, vel);
 }
