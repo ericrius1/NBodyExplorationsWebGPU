@@ -28,6 +28,7 @@ export class Engine {
   readonly camera = new Camera();
   readonly metrics = new Metrics();
   debug = true;
+  paused = false;
 
   private dev: GPUDevice;
   private ctx: GpuContext;
@@ -238,20 +239,22 @@ export class Engine {
 
     const enc = this.dev.createCommandEncoder();
 
-    const tsWrites = this.querySet
-      ? { querySet: this.querySet, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 }
-      : undefined;
-    const cpass = enc.beginComputePass(tsWrites ? { timestampWrites: tsWrites } : {});
-    cpass.setPipeline(useBh ? this.bh : this.naive);
-    cpass.setBindGroup(0, useBh ? this.bhGroup[input] : this.naiveGroup[input]);
-    cpass.dispatchWorkgroups(Math.ceil(this.count / WG));
-    cpass.end();
+    if (!this.paused) {
+      const tsWrites = this.querySet
+        ? { querySet: this.querySet, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 }
+        : undefined;
+      const cpass = enc.beginComputePass(tsWrites ? { timestampWrites: tsWrites } : {});
+      cpass.setPipeline(useBh ? this.bh : this.naive);
+      cpass.setBindGroup(0, useBh ? this.bhGroup[input] : this.naiveGroup[input]);
+      cpass.dispatchWorkgroups(Math.ceil(this.count / WG));
+      cpass.end();
 
-    this.cur = 1 - this.cur;
+      this.cur = 1 - this.cur;
 
-    if (this.querySet && this.tsResolve && this.tsRead && !this.tsMapInFlight) {
-      enc.resolveQuerySet(this.querySet, 0, 2, this.tsResolve, 0);
-      enc.copyBufferToBuffer(this.tsResolve, 0, this.tsRead, 0, 16);
+      if (this.querySet && this.tsResolve && this.tsRead && !this.tsMapInFlight) {
+        enc.resolveQuerySet(this.querySet, 0, 2, this.tsResolve, 0);
+        enc.copyBufferToBuffer(this.tsResolve, 0, this.tsRead, 0, 16);
+      }
     }
 
     const view = this.ctx.context.getCurrentTexture().createView();

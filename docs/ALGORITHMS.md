@@ -90,6 +90,23 @@ trivially available for the overlays. The trade-off is that very large counts ar
 bottlenecked by CPU tree construction; the naive GPU kernel is the better choice
 for raw particle counts.
 
+## Seeding — `sim/initData.ts`
+
+Bodies are placed in a uniform-area disk (`r = R·√u`). Each is given a velocity
+close to its circular-orbit speed so the disk is self-gravitating and rotation
+balances infall instead of collapsing to a point:
+
+```
+M_enc(r) ≈ M_total · (r/R)²          (uniform area density)
+v_circ   = √( G · M_enc / √(r² + ε) )
+v        = spin · v_circ  (tangential)  +  dispersion · v_circ · 𝒩(0,1)
+```
+
+Because `v_circ` is derived from the same `G` used by the solver, the disk stays
+balanced at any gravity — `gravity` becomes a rotation-speed knob (and re-seeds on
+change), `spin` selects collapse (0) ↔ balance (1) ↔ expansion (>1), and
+`dispersion` adds the warmth that seeds spiral structure.
+
 ## Overlays — `render/overlayGeometry.ts`
 
 Overlays are line geometry rebuilt on the CPU each frame and drawn with a

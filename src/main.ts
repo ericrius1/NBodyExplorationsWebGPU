@@ -27,6 +27,10 @@ async function start(): Promise<void> {
       config.mode = config.mode === "naive" ? "barnesHut" : "naive";
       pane.refresh();
     },
+    togglePause: () => {
+      engine.paused = !engine.paused;
+      pane.setPaused(engine.paused);
+    },
     reset: () => engine.rebuild(),
   });
 

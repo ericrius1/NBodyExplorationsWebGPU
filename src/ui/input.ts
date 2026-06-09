@@ -3,6 +3,7 @@ import type { Camera } from "../render/camera";
 export interface InputHooks {
   toggleDebug: () => void;
   toggleMode: () => void;
+  togglePause: () => void;
   reset: () => void;
 }
 
@@ -13,6 +14,8 @@ export function installInput(canvas: HTMLCanvasElement, camera: Camera, hooks: I
       hooks.toggleDebug();
     } else if (e.key === "m" || e.key === "M") {
       hooks.toggleMode();
+    } else if (e.key === "p" || e.key === "P") {
+      hooks.togglePause();
     } else if (e.key === "r" || e.key === "R") {
       hooks.reset();
     }

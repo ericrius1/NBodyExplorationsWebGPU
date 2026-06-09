@@ -6,6 +6,7 @@
 | -------------- | ----------------------------------------------- |
 | `/`            | toggle debug panel + overlays (default: on)     |
 | `m`            | switch solver (naive ↔ Barnes–Hut)              |
+| `p`            | pause / resume simulation                       |
 | `r`            | re-seed particles                               |
 | drag           | pan                                             |
 | wheel          | zoom toward cursor                              |
@@ -43,8 +44,17 @@ pattern in [docs.md/tweakpane-controls.md](docs.md/tweakpane-controls.md).
   slingshots. The main knob keeping motion graceful at high gravity.
 
 **Spawn** (re-seed on release)
-- `spawnRadius`, `initialSpeed` — disk size and tangential speed.
+- `spawnRadius` — disk radius.
+- `spin (orbit)` — fraction of the circular-orbit velocity each body is seeded
+  with. `1.0` = balanced rotating disk that holds together; `0` = no rotation,
+  pure gravitational collapse; `>1` = bodies fly outward.
+- `dispersion` — random velocity spread (as a fraction of orbital speed); seeds
+  the density fluctuations that grow into spiral/flocculent structure.
 - `massMin`, `massMax` — mass range; drives both gravity and draw size.
+
+`gravity` also re-seeds (it sets the orbital velocity scale), so changing it gives
+a fresh balanced disk at a new rotation speed rather than collapsing the current
+one.
 
 **Appearance**
 - `sizeScale`, `minSize` — disc radius (world units) from mass.

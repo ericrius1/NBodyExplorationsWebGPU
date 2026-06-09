@@ -14,6 +14,7 @@ export interface PaneHost {
 export interface DebugPane {
   refresh: () => void;
   setVisible: (v: boolean) => void;
+  setPaused: (v: boolean) => void;
 }
 
 function leftContainer(): HTMLElement {
@@ -21,6 +22,45 @@ function leftContainer(): HTMLElement {
   el.style.cssText = "position:fixed;top:8px;left:8px;width:256px;z-index:10";
   document.body.appendChild(el);
   return el;
+}
+
+const HELP_ROWS: [string, string][] = [
+  ["/", "toggle debug panel"],
+  ["m", "switch solver"],
+  ["p", "pause / resume"],
+  ["r", "re-seed particles"],
+  ["drag", "pan"],
+  ["wheel", "zoom to cursor"],
+];
+
+function buildHelp(): { el: HTMLElement; setPaused: (v: boolean) => void } {
+  const el = document.createElement("div");
+  el.style.cssText =
+    "position:fixed;bottom:8px;left:8px;z-index:10;padding:8px 10px;border-radius:6px;" +
+    "background:rgba(0,0,0,0.6);color:#cfd3dc;font:11px/1.6 ui-monospace,monospace;" +
+    "pointer-events:none;user-select:none";
+  const status = document.createElement("div");
+  status.style.cssText = "color:#7fff9f;margin-bottom:4px;min-height:1.6em";
+  el.appendChild(status);
+  for (const [key, action] of HELP_ROWS) {
+    const row = document.createElement("div");
+    const k = document.createElement("span");
+    k.textContent = key;
+    k.style.cssText = "display:inline-block;min-width:42px;color:#fff;font-weight:600";
+    const a = document.createElement("span");
+    a.textContent = action;
+    row.appendChild(k);
+    row.appendChild(a);
+    el.appendChild(row);
+  }
+  document.body.appendChild(el);
+  return {
+    el,
+    setPaused: (v: boolean) => {
+      status.textContent = v ? "❚❚ paused" : "▶ running";
+      status.style.color = v ? "#ffcf5f" : "#7fff9f";
+    },
+  };
 }
 
 export function buildPane(host: PaneHost, metrics: Metrics, caps: PaneCaps): DebugPane {
@@ -49,6 +89,9 @@ export function buildPane(host: PaneHost, metrics: Metrics, caps: PaneCaps): Deb
     met.addBinding(metrics, "jsHeapMB", { readonly: true, format: (v: number) => `${v.toFixed(0)} MB`, label: "js heap" });
   }
 
+  const help = buildHelp();
+  help.setPaused(false);
+
   return {
     refresh: () => {
       controls.refresh();
@@ -58,6 +101,8 @@ export function buildPane(host: PaneHost, metrics: Metrics, caps: PaneCaps): Deb
       const d = v ? "" : "none";
       (controls.element.style as CSSStyleDeclaration).display = d;
       (met.element.style as CSSStyleDeclaration).display = d;
+      help.el.style.display = v ? "" : "none";
     },
+    setPaused: help.setPaused,
   };
 }
