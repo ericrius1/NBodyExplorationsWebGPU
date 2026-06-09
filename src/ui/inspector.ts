@@ -58,7 +58,7 @@ const CSS = `
   margin-bottom: 0; border-radius: 8px 8px 0 0; border-bottom-color: transparent;
   background: rgba(24,24,30,.95);
 }
-#nb-insp-dock.open #nb-insp-toggle svg { transform: rotate(180deg); }
+#nb-insp-dock.open #nb-insp-toggle .nb-insp-expand-icon { transform: rotate(45deg); }
 #nb-insp-panel {
   width: 100%; max-height: 0; overflow: hidden; flex: none;
   display: flex; flex-direction: column;
@@ -133,9 +133,9 @@ function fmtBytes(bytes: number): string {
   return `${bytes} B`;
 }
 
-const TOGGLE_ICON =
-  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">' +
-  '<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-6"/><path d="M22 20H2"/></svg>';
+const EXPAND_ICON =
+  '<svg class="nb-insp-expand-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">' +
+  '<path d="M12 5v14"/><path d="M5 12h14"/></svg>';
 
 const GRAPH_SAMPLES = 300;
 
@@ -154,7 +154,8 @@ export function buildInspector(caps: InspectorCaps): Inspector {
   toggle.id = "nb-insp-toggle";
   const toggleStats = el("span", "", "– ms");
   toggle.appendChild(toggleStats);
-  toggle.insertAdjacentHTML("beforeend", TOGGLE_ICON);
+  toggle.insertAdjacentHTML("beforeend", EXPAND_ICON);
+  toggle.title = "Expand performance panel";
 
   const panel = el("div", "");
   panel.id = "nb-insp-panel";
@@ -211,7 +212,9 @@ export function buildInspector(caps: InspectorCaps): Inspector {
   const isOpen = (): boolean => dock.classList.contains("open");
   const setOpen = (open: boolean): void => {
     dock.classList.toggle("open", open);
+    toggle.title = open ? "Collapse performance panel" : "Expand performance panel";
   };
+  setOpen(true);
 
   const selectTab = (perf: boolean): void => {
     perfTab.classList.toggle("active", perf);

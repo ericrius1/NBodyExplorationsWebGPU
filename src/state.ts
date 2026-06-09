@@ -61,7 +61,7 @@ export interface Control {
 
 export const CONTROLS: Control[] = [
   { key: "mode", folder: "Simulation", opts: { options: { "naive O(n^2)": "naive", "barnes-hut (CPU tree)": "barnesHut", "barnes-hut (GPU pyramid)": "bhGpu" } } },
-  { key: "numParticles", folder: "Simulation", rebuild: "last", opts: { min: 256, max: 2000000, step: 256 } },
+  { key: "numParticles", folder: "Simulation", rebuild: "last", opts: { min: 256, max: 1000000, step: 256 } },
   { key: "stepsPerFrame", folder: "Simulation", opts: { min: 1, max: 64, step: 1, label: "steps / frame" } },
   { key: "gravity", folder: "Physics", rebuild: "last", opts: { min: 0, max: 0.00012, step: 0.000001 } },
   { key: "timeStep", folder: "Physics", opts: { min: 0.001, max: 0.025, step: 0.0005, label: "dt" } },
