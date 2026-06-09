@@ -17,9 +17,11 @@ export interface DebugPane {
   setPaused: (v: boolean) => void;
 }
 
-function leftContainer(): HTMLElement {
+function paneContainer(side: "left" | "right"): HTMLElement {
   const el = document.createElement("div");
-  el.style.cssText = "position:fixed;top:8px;left:8px;width:256px;z-index:10";
+  el.style.cssText =
+    `position:fixed;top:8px;${side}:8px;width:256px;z-index:10;` +
+    "max-height:calc(100vh - 16px);overflow-y:auto;overscroll-behavior:contain";
   document.body.appendChild(el);
   return el;
 }
@@ -64,7 +66,8 @@ function buildHelp(): { el: HTMLElement; setPaused: (v: boolean) => void } {
 }
 
 export function buildPane(host: PaneHost, metrics: Metrics, caps: PaneCaps): DebugPane {
-  const controls = new Pane({ title: "n-body · controls  ( / )" });
+  const controlsHost = paneContainer("right");
+  const controls = new Pane({ title: "n-body · controls  ( / )", container: controlsHost });
   const folders: Record<string, ReturnType<Pane["addFolder"]>> = {};
 
   for (const c of CONTROLS) {
@@ -74,7 +77,8 @@ export function buildPane(host: PaneHost, metrics: Metrics, caps: PaneCaps): Deb
     if (c.rebuild === "always") b.on("change", () => host.rebuild());
   }
 
-  const met = new Pane({ title: "metrics", container: leftContainer() });
+  const metricsHost = paneContainer("left");
+  const met = new Pane({ title: "metrics", container: metricsHost });
   met.addBinding(metrics, "fps", { readonly: true, format: (v: number) => v.toFixed(0) });
   met.addBinding(metrics, "fps", { readonly: true, view: "graph", min: 0, max: 165, label: " " });
   met.addBinding(metrics, "frameMs", { readonly: true, format: (v: number) => `${v.toFixed(2)} ms`, label: "frame" });
@@ -99,8 +103,8 @@ export function buildPane(host: PaneHost, metrics: Metrics, caps: PaneCaps): Deb
     },
     setVisible: (v: boolean) => {
       const d = v ? "" : "none";
-      (controls.element.style as CSSStyleDeclaration).display = d;
-      (met.element.style as CSSStyleDeclaration).display = d;
+      controlsHost.style.display = d;
+      metricsHost.style.display = d;
       help.el.style.display = v ? "" : "none";
     },
     setPaused: help.setPaused,

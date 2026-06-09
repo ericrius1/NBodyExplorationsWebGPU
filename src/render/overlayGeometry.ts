@@ -70,6 +70,27 @@ export function addVelocityField(
   }
 }
 
+export function addNaiveProbe(
+  lb: LineBuilder,
+  bodies: Float32Array,
+  probe: number,
+  count: number,
+  maxLines: number,
+): void {
+  const px = bodies[probe * 4];
+  const py = bodies[probe * 4 + 1];
+  const probeColor: RGBA = [1.0, 0.95, 0.2, 1.0];
+  const lineColor: RGBA = [1.0, 0.55, 0.15, 0.35];
+
+  lb.rect(px, py, 0.012, probeColor);
+
+  const step = Math.max(1, Math.ceil(count / maxLines));
+  for (let j = 0; j < count; j += step) {
+    if (j === probe) continue;
+    lb.line(px, py, bodies[j * 4], bodies[j * 4 + 1], lineColor);
+  }
+}
+
 export function addProbe(
   lb: LineBuilder,
   tree: QuadTree,

@@ -14,6 +14,7 @@ import {
   addCentersOfMass,
   addVelocityField,
   addProbe,
+  addNaiveProbe,
 } from "./render/overlayGeometry";
 import { Metrics } from "./ui/metrics";
 
@@ -291,11 +292,13 @@ export class Engine {
   }
 
   private needTree(): boolean {
-    return config.mode === "barnesHut" || (this.debug && (config.showQuadtree || config.showCenterOfMass || config.showProbe));
+    return config.mode === "barnesHut";
   }
 
   private needReadback(): boolean {
-    return this.needTree() || (this.debug && config.showVelocity);
+    if (this.needTree()) return true;
+    if (!this.debug) return false;
+    return config.showVelocity || config.showProbe;
   }
 
   private scheduleReadback(): void {
@@ -312,6 +315,7 @@ export class Engine {
       staging.unmap();
       this.bodyMapInFlight = false;
       if (this.needTree()) this.rebuildTree();
+      else if (this.debug && config.showProbe) this.pickProbe();
     }).catch(() => { this.bodyMapInFlight = false; });
   }
 
@@ -340,10 +344,14 @@ export class Engine {
 
   private buildOverlay(): Float32Array | null {
     const lb = new LineBuilder();
-    if (this.tree && config.showQuadtree) addQuadtreeCells(lb, this.tree, 12000);
-    if (this.tree && config.showCenterOfMass) addCentersOfMass(lb, this.tree, 4000);
+    if (config.mode === "barnesHut") {
+      if (this.tree && config.showQuadtree) addQuadtreeCells(lb, this.tree, 12000);
+      if (this.tree && config.showCenterOfMass) addCentersOfMass(lb, this.tree, 4000);
+      if (this.tree && config.showProbe) addProbe(lb, this.tree, this.cpuBodies, this.probe, config.theta, config.softening);
+    } else if (config.showProbe && this.cpuBodies.length) {
+      addNaiveProbe(lb, this.cpuBodies, this.probe, this.count, 6000);
+    }
     if (config.showVelocity && this.cpuBodies.length) addVelocityField(lb, this.cpuBodies, this.count, config.timeStep * 8, 6000);
-    if (this.tree && config.showProbe) addProbe(lb, this.tree, this.cpuBodies, this.probe, config.theta, config.softening);
     return lb.count > 0 ? lb.toFloat32() : null;
   }
 
