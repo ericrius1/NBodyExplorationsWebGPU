@@ -70,6 +70,43 @@ export function endOverlayPass(renderer: WebGPURenderer): void {
   inspector(renderer)?.finishRender(frameUid(renderer, "overlay"));
 }
 
+// The engine records raw WebGPU passes, so the backend never sees the
+// inspector's timestamp uids and resolveTimestamp() can never mark a frame
+// resolved — without this the Performance/Timeline tabs stay empty forever.
+// Resolve frames manually, injecting the engine's own compute-pass GPU timing.
+type StatsLike = { gpu: number; gpuNotAvailable?: boolean };
+type FrameLike = {
+  frameId: number;
+  resolvedCompute: boolean;
+  resolvedRender: boolean;
+  computes: StatsLike[];
+  renders: StatsLike[];
+};
+type ResolvableInspector = {
+  frames: FrameLike[];
+  getFrameById(frameId: number): FrameLike | null;
+  resolveFrame(frame: FrameLike): void;
+};
+
+export function resolveInspectorFrames(renderer: WebGPURenderer, computeGpuMs: number): void {
+  const insp = inspector(renderer) as unknown as ResolvableInspector | null;
+  if (!insp) return;
+  const frames = insp.frames;
+  for (let i = frames.length - 1; i >= 0; i--) {
+    const frame = frames[i];
+    if (frame.resolvedCompute && frame.resolvedRender) break;
+    if (!insp.getFrameById(frame.frameId + 1)) continue;
+    for (const stats of frame.computes) stats.gpu = computeGpuMs;
+    for (const stats of frame.renders) {
+      stats.gpu = 0;
+      stats.gpuNotAvailable = true;
+    }
+    frame.resolvedCompute = true;
+    frame.resolvedRender = true;
+    insp.resolveFrame(frame);
+  }
+}
+
 export function setInspectorVisible(renderer: WebGPURenderer, visible: boolean): void {
   const shell = (renderer.inspector as Inspector | null)?.domElement;
   if (!shell) return;

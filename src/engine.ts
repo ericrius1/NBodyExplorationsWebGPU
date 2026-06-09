@@ -29,6 +29,7 @@ import {
   endParticlePass,
   beginOverlayPass,
   endOverlayPass,
+  resolveInspectorFrames,
 } from "./gpu/inspectorHooks";
 
 function hex(s: string): [number, number, number] {
@@ -320,6 +321,8 @@ export class Engine {
 
     this.scheduleReadback();
     this.readTimestamps();
+
+    if (profile) resolveInspectorFrames(this.ctx.renderer, this.metrics.computeMs);
 
     this.metrics.tick();
     this.metrics.nodes =
