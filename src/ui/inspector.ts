@@ -1,6 +1,6 @@
 // Custom debug inspector for the raw-WebGPU engine, styled after the
-// three.js examples inspector: a collapsed top-right timing button that expands
-// a bottom-docked tabbed panel (Performance / Memory).
+// three.js examples inspector: a bottom-right timing tab that expands a
+// bottom-docked panel upward from the same anchor (Performance / Memory).
 
 export interface MemoryRow {
   name: string;
@@ -32,23 +32,44 @@ export interface Inspector {
   setVisible: (v: boolean) => void;
 }
 
+const PANEL_H = 320;
+
 const CSS = `
 #nb-inspector { font: 12px/1.5 ui-monospace, Menlo, monospace; color: #cfd3dc; }
 #nb-inspector * { box-sizing: border-box; }
+#nb-insp-dock {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10000;
+  display: flex; flex-direction: column; align-items: flex-end;
+  pointer-events: none;
+}
 #nb-insp-toggle {
-  position: fixed; top: 8px; right: 8px; z-index: 10001;
-  display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+  display: flex; align-items: center; gap: 8px; padding: 7px 12px; margin: 0 8px 8px 0;
   background: rgba(30,30,36,.85); border: 1px solid #4a4a5a55; border-radius: 8px;
   cursor: pointer; backdrop-filter: blur(8px); user-select: none; color: #cfd3dc;
+  pointer-events: auto; flex: none;
+  transition: margin 0.22s ease, border-radius 0.22s ease, border-color 0.22s ease, background 0.15s;
 }
 #nb-insp-toggle:hover { background: rgba(48,48,58,.9); color: #fff; }
-#nb-insp-toggle svg { display: block; }
-#nb-insp-panel {
-  position: fixed; left: 0; right: 0; bottom: 0; height: 320px; z-index: 10000;
-  background: rgba(24,24,30,.95); backdrop-filter: blur(10px);
-  border-top: 1px solid #4a4a5a55; display: none; flex-direction: column;
+#nb-insp-toggle svg {
+  display: block; flex: none;
+  transition: transform 0.22s ease;
 }
-#nb-insp-panel.visible { display: flex; }
+#nb-insp-dock.open #nb-insp-toggle {
+  margin-bottom: 0; border-radius: 8px 8px 0 0; border-bottom-color: transparent;
+  background: rgba(24,24,30,.95);
+}
+#nb-insp-dock.open #nb-insp-toggle svg { transform: rotate(180deg); }
+#nb-insp-panel {
+  width: 100%; max-height: 0; overflow: hidden; flex: none;
+  display: flex; flex-direction: column;
+  background: rgba(24,24,30,.95); backdrop-filter: blur(10px);
+  border-top: 1px solid #4a4a5a55;
+  pointer-events: none; opacity: 0;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+#nb-insp-dock.open #nb-insp-panel {
+  max-height: ${PANEL_H}px; pointer-events: auto; opacity: 1;
+}
 .nb-tabs { display: flex; align-items: center; padding: 0 10px; border-bottom: 1px solid #4a4a5a33; flex: none; }
 .nb-tab { padding: 9px 14px; cursor: pointer; color: #9aa0ae; border-bottom: 2px solid transparent; font-weight: 600; }
 .nb-tab:hover { color: #fff; }
@@ -126,6 +147,9 @@ export function buildInspector(caps: InspectorCaps): Inspector {
   const shell = el("div", "");
   shell.id = "nb-inspector";
 
+  const dock = el("div", "");
+  dock.id = "nb-insp-dock";
+
   const toggle = el("div", "");
   toggle.id = "nb-insp-toggle";
   const toggleStats = el("span", "", "– ms");
@@ -179,8 +203,15 @@ export function buildInspector(caps: InspectorCaps): Inspector {
   }
 
   panel.append(tabBar, perfView, memView);
-  shell.append(toggle, panel);
+  panel.style.height = `${PANEL_H}px`;
+  dock.append(toggle, panel);
+  shell.append(dock);
   document.body.appendChild(shell);
+
+  const isOpen = (): boolean => dock.classList.contains("open");
+  const setOpen = (open: boolean): void => {
+    dock.classList.toggle("open", open);
+  };
 
   const selectTab = (perf: boolean): void => {
     perfTab.classList.toggle("active", perf);
@@ -190,8 +221,8 @@ export function buildInspector(caps: InspectorCaps): Inspector {
   };
   perfTab.addEventListener("click", () => selectTab(true));
   memTab.addEventListener("click", () => selectTab(false));
-  toggle.addEventListener("click", () => panel.classList.toggle("visible"));
-  collapse.addEventListener("click", () => panel.classList.remove("visible"));
+  toggle.addEventListener("click", () => setOpen(!isOpen()));
+  collapse.addEventListener("click", () => setOpen(false));
 
   const fpsHistory = new Float32Array(GRAPH_SAMPLES);
   let fpsCount = 0;
@@ -258,14 +289,14 @@ export function buildInspector(caps: InspectorCaps): Inspector {
       fpsHistory.copyWithin(0, 1);
       fpsHistory[GRAPH_SAMPLES - 1] = f.fps;
       fpsCount++;
-      if (panel.classList.contains("visible")) drawGraph();
+      if (isOpen()) drawGraph();
     }
 
     if (now - lastText < 250) return;
     lastText = now;
 
     toggleStats.textContent = `${ms(f.frameMs)} ms  ·  ${formatCompute(f)} ms cmp`;
-    if (!panel.classList.contains("visible")) return;
+    if (!isOpen()) return;
 
     graphSection.value.textContent = formatSummary(f);
 
@@ -309,7 +340,7 @@ export function buildInspector(caps: InspectorCaps): Inspector {
     setVisible: (v: boolean): void => {
       visible = v;
       shell.style.display = v ? "" : "none";
-      if (!v) panel.classList.remove("visible");
+      if (!v) setOpen(false);
     },
   };
 }
