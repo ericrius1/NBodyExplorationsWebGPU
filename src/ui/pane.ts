@@ -1,11 +1,5 @@
 import { Pane } from "tweakpane";
 import { config, CONTROLS } from "../state";
-import type { Metrics } from "./metrics";
-
-export interface PaneCaps {
-  timestamp: boolean;
-  jsHeap: boolean;
-}
 
 export interface PaneHost {
   rebuild: () => void;
@@ -29,6 +23,7 @@ function paneContainer(side: "left" | "right"): HTMLElement {
 
 const HELP_ROWS: [string, string][] = [
   ["/", "toggle debug + inspector"],
+  ["o", "toggle overlays (debug)"],
   ["m", "switch solver"],
   ["p", "pause / resume"],
   ["r", "re-seed particles"],
@@ -66,7 +61,7 @@ function buildHelp(): { el: HTMLElement; setPaused: (v: boolean) => void } {
   };
 }
 
-export function buildPane(host: PaneHost, metrics: Metrics, caps: PaneCaps): DebugPane {
+export function buildPane(host: PaneHost): DebugPane {
   const controlsHost = paneContainer("right");
   const controls = new Pane({ title: "n-body · controls  ( / )", container: controlsHost });
   const folders: Record<string, ReturnType<Pane["addFolder"]>> = {};
@@ -78,34 +73,15 @@ export function buildPane(host: PaneHost, metrics: Metrics, caps: PaneCaps): Deb
     if (c.rebuild === "always") b.on("change", () => host.rebuild());
   }
 
-  const metricsHost = paneContainer("left");
-  const met = new Pane({ title: "metrics", container: metricsHost });
-  met.addBinding(metrics, "fps", { readonly: true, format: (v: number) => v.toFixed(0) });
-  met.addBinding(metrics, "fps", { readonly: true, view: "graph", min: 0, max: 165, label: " " });
-  met.addBinding(metrics, "frameMs", { readonly: true, format: (v: number) => `${v.toFixed(2)} ms`, label: "frame" });
-  met.addBinding(metrics, "frameMs", { readonly: true, view: "graph", min: 0, max: 33, label: " " });
-  if (caps.timestamp) {
-    met.addBinding(metrics, "computeMs", { readonly: true, format: (v: number) => `${v.toFixed(3)} ms`, label: "compute" });
-    met.addBinding(metrics, "computeMs", { readonly: true, view: "graph", min: 0, max: 16, label: " " });
-  }
-  met.addBinding(metrics, "nodes", { readonly: true, format: (v: number) => v.toFixed(0), label: "bh nodes" });
-  met.addBinding(metrics, "bufferMB", { readonly: true, format: (v: number) => `${v.toFixed(1)} MB`, label: "gpu buffers" });
-  if (caps.jsHeap) {
-    met.addBinding(metrics, "jsHeapMB", { readonly: true, format: (v: number) => `${v.toFixed(0)} MB`, label: "js heap" });
-  }
-
   const help = buildHelp();
   help.setPaused(false);
 
   return {
     refresh: () => {
       controls.refresh();
-      met.refresh();
     },
     setVisible: (v: boolean) => {
-      const d = v ? "" : "none";
-      controlsHost.style.display = d;
-      metricsHost.style.display = d;
+      controlsHost.style.display = v ? "" : "none";
       help.el.style.display = v ? "" : "none";
     },
     setPaused: help.setPaused,

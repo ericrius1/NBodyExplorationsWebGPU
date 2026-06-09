@@ -46,10 +46,10 @@ export const config: Config = {
   colorScale: 1.6,
   colorLow: "#1b3cff",
   colorHigh: "#ff4d2e",
-  showQuadtree: true,
+  showQuadtree: false,
   showCenterOfMass: false,
   showVelocity: false,
-  showProbe: true,
+  showProbe: false,
 };
 
 export interface Control {

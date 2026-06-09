@@ -2,6 +2,9 @@ export class Metrics {
   fps = 0;
   frameMs = 0;
   computeMs = 0;
+  solverCpuMs = 0;
+  particlesCpuMs = 0;
+  overlayCpuMs = 0;
   nodes = 0;
   bufferMB = 0;
   jsHeapMB = 0;

@@ -1,6 +1,6 @@
 import type { GpuContext } from "./gpu/context";
 import { resizeCanvas } from "./gpu/context";
-import { config } from "./state";
+import { config, type Mode } from "./state";
 import { generateInitData } from "./sim/initData";
 import { buildQuadTree, NODE_FLOATS, type QuadTree } from "./sim/quadtree";
 import { createNaivePipeline } from "./sim/naivePipeline";
@@ -22,15 +22,7 @@ import {
   addPyramidProbe,
 } from "./render/overlayGeometry";
 import { Metrics } from "./ui/metrics";
-import {
-  beginComputePass,
-  endComputePass,
-  beginParticlePass,
-  endParticlePass,
-  beginOverlayPass,
-  endOverlayPass,
-  resolveInspectorFrames,
-} from "./gpu/inspectorHooks";
+import type { MemoryRow } from "./ui/inspector";
 
 function hex(s: string): [number, number, number] {
   const n = parseInt(s.replace("#", ""), 16);
@@ -74,6 +66,8 @@ export class Engine {
 
   private cur = 0;
   private count = 0;
+  private totalMass = 0;
+  private lastMode: Mode = config.mode;
 
   private tree: QuadTree | null = null;
   private treeReady = false;
@@ -117,6 +111,28 @@ export class Engine {
     this.onRefresh = cb;
   }
 
+  get particleCount(): number {
+    return this.count;
+  }
+
+  solverLabel(): string {
+    if (config.mode === "bhGpu") return "Barnes–Hut (GPU pyramid)";
+    if (config.mode === "barnesHut" && this.treeReady) return "Barnes–Hut (CPU tree)";
+    return "Naive O(n²)";
+  }
+
+  memoryRows(): MemoryRow[] {
+    return [
+      { name: "bodies (ping-pong ×2)", count: this.count * 2, bytes: this.count * 16 * 2 },
+      { name: "masses", count: this.count, bytes: this.count * 4 },
+      { name: "body staging", count: this.bodyStaging ? this.count : 0, bytes: this.bodyStaging ? this.count * 16 : 0 },
+      { name: "quadtree nodes", count: this.tree?.nodeCount ?? 0, bytes: this.nodesCapBytes },
+      { name: "GPU pyramid", count: this.pyr.nodeCount, bytes: this.pyr.bufferBytes },
+      { name: "overlay vertices", count: null, bytes: this.overlayCapBytes },
+      { name: "uniforms + timestamps", count: null, bytes: 96 + (this.querySet ? 32 : 0) },
+    ];
+  }
+
   rebuild(): void {
     this.count = config.numParticles;
     const data = generateInitData(config);
@@ -136,11 +152,11 @@ export class Engine {
     this.mass = this.dev.createBuffer({ size: this.count * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     this.dev.queue.writeBuffer(this.mass, 0, data.masses as BufferSource);
 
+    // Staging is lazily created on first readback (debug overlays / CPU tree).
     this.bodyStaging?.destroy();
-    this.bodyStaging = this.dev.createBuffer({ size: bodyBytes, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    this.bodyStaging = null!;
     this.bodyMapInFlight = false;
 
-    this.ensureNodesBuffer(WG * NODE_FLOATS * 4);
     this.cur = 0;
     this.tree = null;
     this.treeReady = false;
@@ -149,7 +165,15 @@ export class Engine {
 
     let totalMass = 0;
     for (let i = 0; i < this.count; i++) totalMass += this.cpuMass[i];
-    this.pyr.rebuild(this.count, totalMass, this.bodies, this.mass);
+    this.totalMass = totalMass;
+
+    // Solver-specific buffers are allocated only for the active mode; the
+    // others are freed so switching modes never leaves big buffers behind.
+    this.lastMode = config.mode;
+    if (config.mode === "barnesHut") this.ensureNodesBuffer(WG * NODE_FLOATS * 4);
+    else this.releaseTreeBuffers();
+    if (config.mode === "bhGpu") this.pyr.rebuild(this.count, totalMass, this.bodies, this.mass);
+    else this.pyr.release();
 
     this.buildComputeGroups();
     this.buildParticleGroups();
@@ -158,6 +182,22 @@ export class Engine {
       entries: [{ binding: 0, resource: { buffer: this.renderParams } }],
     });
 
+    this.updateMemoryMetric();
+  }
+
+  private releaseTreeBuffers(): void {
+    this.tree = null;
+    this.treeReady = false;
+    this.nodesBuf?.destroy();
+    this.nodesBuf = null!;
+    this.nodesCapBytes = 0;
+  }
+
+  private onModeSwitch(mode: Mode): void {
+    this.lastMode = mode;
+    if (mode === "bhGpu") this.pyr.rebuild(this.count, this.totalMass, this.bodies, this.mass);
+    else this.pyr.release();
+    if (mode !== "barnesHut") this.releaseTreeBuffers();
     this.updateMemoryMetric();
   }
 
@@ -250,7 +290,13 @@ export class Engine {
 
   private updateMemoryMetric(): void {
     const bytes =
-      this.count * 16 * 2 + this.count * 4 + this.nodesCapBytes + this.overlayCapBytes + this.pyr.bufferBytes + 96;
+      this.count * 16 * 2 +
+      this.count * 4 +
+      (this.bodyStaging ? this.count * 16 : 0) +
+      this.nodesCapBytes +
+      this.overlayCapBytes +
+      this.pyr.bufferBytes +
+      96;
     this.metrics.bufferMB = bytes / (1024 * 1024);
   }
 
@@ -261,14 +307,17 @@ export class Engine {
     this.writeRenderParams(aspect);
 
     const mode = config.mode;
+    if (mode !== this.lastMode) this.onModeSwitch(mode);
+    const wantMirror =
+      mode === "bhGpu" && this.debug && (config.showQuadtree || config.showCenterOfMass || config.showProbe);
+    if (this.pyrMirror && !wantMirror) this.pyrMirror = null;
     const useBh = mode === "barnesHut" && this.treeReady;
     const profile = this.debug;
 
     const enc = this.dev.createCommandEncoder();
 
     if (!this.paused) {
-      const label = mode === "bhGpu" ? "Barnes–Hut (GPU pyramid)" : useBh ? "Barnes–Hut (CPU tree)" : "Naive O(n²)";
-      if (profile) beginComputePass(this.ctx.renderer, label);
+      const t0 = profile ? performance.now() : 0;
       const tsWrites = this.querySet
         ? { querySet: this.querySet, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 }
         : undefined;
@@ -286,43 +335,44 @@ export class Engine {
         this.cur = 1 - this.cur;
       }
       cpass.end();
-      if (profile) endComputePass(this.ctx.renderer);
+      if (profile) this.metrics.solverCpuMs = performance.now() - t0;
 
       if (this.querySet && this.tsResolve && this.tsRead && !this.tsMapInFlight) {
         enc.resolveQuerySet(this.querySet, 0, 2, this.tsResolve, 0);
         enc.copyBufferToBuffer(this.tsResolve, 0, this.tsRead, 0, 16);
       }
+    } else {
+      this.metrics.solverCpuMs = 0;
+      this.metrics.computeMs = 0;
     }
 
     const view = this.ctx.context.getCurrentTexture().createView();
     const rpass = enc.beginRenderPass({
       colorAttachments: [{ view, clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: "clear", storeOp: "store" }],
     });
-    if (profile) beginParticlePass(this.ctx.renderer);
+    const tParticles = profile ? performance.now() : 0;
     rpass.setPipeline(this.particle);
     rpass.setBindGroup(0, this.particleGroup[this.cur]);
     rpass.draw(6, this.count);
-    if (profile) endParticlePass(this.ctx.renderer);
+    if (profile) this.metrics.particlesCpuMs = performance.now() - tParticles;
 
+    const tOverlay = profile ? performance.now() : 0;
     const overlayVerts = this.debug ? this.buildOverlay() : null;
     if (overlayVerts && overlayVerts.length > 0) {
-      if (profile) beginOverlayPass(this.ctx.renderer);
       this.ensureOverlayBuffer(overlayVerts.byteLength);
       this.dev.queue.writeBuffer(this.overlayBuf, 0, overlayVerts as BufferSource);
       rpass.setPipeline(this.overlay);
       rpass.setBindGroup(0, this.overlayGroup);
       rpass.setVertexBuffer(0, this.overlayBuf);
       rpass.draw(overlayVerts.length / 6);
-      if (profile) endOverlayPass(this.ctx.renderer);
     }
+    if (profile) this.metrics.overlayCpuMs = performance.now() - tOverlay;
     rpass.end();
 
     this.dev.queue.submit([enc.finish()]);
 
     this.scheduleReadback();
     this.readTimestamps();
-
-    if (profile) resolveInspectorFrames(this.ctx.renderer, this.metrics.computeMs);
 
     this.metrics.tick();
     this.metrics.nodes =
@@ -355,6 +405,13 @@ export class Engine {
     }
     const src = this.bodies[this.cur];
     const bytes = this.count * 16;
+    if (!this.bodyStaging) {
+      this.bodyStaging = this.dev.createBuffer({
+        size: bytes,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+      });
+      this.updateMemoryMetric();
+    }
     const enc = this.dev.createCommandEncoder();
     enc.copyBufferToBuffer(src, 0, this.bodyStaging, 0, bytes);
     this.dev.queue.submit([enc.finish()]);

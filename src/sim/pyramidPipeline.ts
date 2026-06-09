@@ -62,7 +62,26 @@ export class PyramidSolver {
   }
 
   get nodeCount(): number {
-    return levelOffset(this.finestLevel + 1);
+    return this.gridBuf ? levelOffset(this.finestLevel + 1) : 0;
+  }
+
+  // Frees all per-resolution GPU memory. Safe to call when inactive; the next
+  // rebuild() reallocates from scratch.
+  release(): void {
+    this.gridBuf?.destroy();
+    this.nodesBuf?.destroy();
+    this.levelBuf?.destroy();
+    this.gridBuf = null!;
+    this.nodesBuf = null!;
+    this.levelBuf = null!;
+    this.finestLevel = 0;
+    this.gridDim = 0;
+    this.reduceGroups = [];
+    this.clearGroup = null!;
+    this.resolveGroup = null!;
+    this.boundsGroup = [null!, null!];
+    this.scatterGroup = [null!, null!];
+    this.forceGroup = [null!, null!];
   }
 
   get bufferBytes(): number {
