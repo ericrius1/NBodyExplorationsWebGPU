@@ -19,15 +19,16 @@ export interface DebugPane {
 
 function paneContainer(side: "left" | "right"): HTMLElement {
   const el = document.createElement("div");
+  const top = side === "right" ? "58px" : "8px";
   el.style.cssText =
-    `position:fixed;top:8px;${side}:8px;width:256px;z-index:10;` +
+    `position:fixed;top:${top};${side}:8px;width:256px;z-index:10;` +
     "max-height:calc(100vh - 16px);overflow-y:auto;overscroll-behavior:contain";
   document.body.appendChild(el);
   return el;
 }
 
 const HELP_ROWS: [string, string][] = [
-  ["/", "toggle debug panel"],
+  ["/", "toggle debug + inspector"],
   ["m", "switch solver"],
   ["p", "pause / resume"],
   ["r", "re-seed particles"],

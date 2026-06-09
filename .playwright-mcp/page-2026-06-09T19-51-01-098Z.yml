@@ -1,0 +1,189 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - button "- FPS" [ref=e3] [cursor=pointer]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: "-"
+        - generic [ref=e6]: FPS
+      - img [ref=e8]
+    - generic [ref=e13]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - button "⋮⋮ Performance" [ref=e17]
+          - button "Memory" [ref=e18]
+          - button "Timeline" [ref=e19]
+          - button "Console" [ref=e20]
+          - button "Settings" [ref=e21]
+        - generic [ref=e22]:
+          - button "Switch to Right Side" [ref=e23] [cursor=pointer]:
+            - img [ref=e24]
+          - button [ref=e26] [cursor=pointer]:
+            - img [ref=e27]
+          - button "-" [ref=e29] [cursor=pointer]
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - generic [ref=e35]: Name
+          - generic [ref=e36]: CPU
+          - generic [ref=e37]: GPU
+          - generic [ref=e38]: Total
+        - generic [ref=e39]:
+          - generic [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]: "-"
+            - text: Graph Stats
+          - img [ref=e48]
+        - generic [ref=e49]:
+          - generic [ref=e51] [cursor=pointer]:
+            - generic [ref=e52]: "-"
+            - text: Frame Stats
+          - generic [ref=e56]: Miscellaneous & Idle
+  - generic [ref=e58]:
+    - button "n-body · controls ( / )" [ref=e59] [cursor=pointer]:
+      - generic [ref=e60]: n-body · controls ( / )
+    - generic [ref=e62]:
+      - generic [ref=e63]:
+        - button "Simulation" [ref=e64] [cursor=pointer]:
+          - generic [ref=e65]: Simulation
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - generic [ref=e70]: mode
+            - generic [ref=e72]:
+              - combobox [ref=e73] [cursor=pointer]:
+                - option "naive O(n^2)"
+                - option "barnes-hut" [selected]
+              - generic:
+                - img
+          - generic [ref=e74]:
+            - generic [ref=e75]: numParticles
+            - textbox [ref=e84]: "16000"
+      - generic [ref=e86]:
+        - button "Physics" [ref=e87] [cursor=pointer]:
+          - generic [ref=e88]: Physics
+        - generic [ref=e91]:
+          - generic [ref=e92]:
+            - generic [ref=e93]: gravity
+            - textbox [ref=e102]: "0.000002"
+          - generic [ref=e104]:
+            - generic [ref=e105]: dt
+            - textbox [ref=e114]: "0.0100"
+          - generic [ref=e116]:
+            - generic [ref=e117]: softening
+            - textbox [ref=e126]: "0.0040"
+          - generic [ref=e128]:
+            - generic [ref=e129]: theta (BH)
+            - textbox [ref=e138]: "0.75"
+          - generic [ref=e140]:
+            - generic [ref=e141]: damping
+            - textbox [ref=e150]: "1.0000"
+          - generic [ref=e152]:
+            - generic [ref=e153]: max speed
+            - textbox [ref=e162]: "1.50"
+      - generic [ref=e164]:
+        - button "Spawn" [ref=e165] [cursor=pointer]:
+          - generic [ref=e166]: Spawn
+        - generic [ref=e169]:
+          - generic [ref=e170]:
+            - generic [ref=e171]: spawnRadius
+            - textbox [ref=e180]: "0.90"
+          - generic [ref=e182]:
+            - generic [ref=e183]: spin (orbit)
+            - textbox [ref=e192]: "1.00"
+          - generic [ref=e194]:
+            - generic [ref=e195]: dispersion
+            - textbox [ref=e204]: "0.12"
+          - generic [ref=e206]:
+            - generic [ref=e207]: massMin
+            - textbox [ref=e216]: "1.0"
+          - generic [ref=e218]:
+            - generic [ref=e219]: massMax
+            - textbox [ref=e228]: "4.0"
+      - generic [ref=e230]:
+        - button "Appearance" [ref=e231] [cursor=pointer]:
+          - generic [ref=e232]: Appearance
+        - generic [ref=e235]:
+          - generic [ref=e236]:
+            - generic [ref=e237]: sizeScale
+            - textbox [ref=e246]: "0.0024"
+          - generic [ref=e248]:
+            - generic [ref=e249]: minSize
+            - textbox [ref=e258]: "0.0012"
+          - generic [ref=e260]:
+            - generic [ref=e261]: speed→color
+            - textbox [ref=e270]: "1.60"
+          - generic [ref=e272]:
+            - generic [ref=e273]: colorLow
+            - generic [ref=e276]:
+              - button [ref=e280] [cursor=pointer]
+              - textbox [ref=e283]: "#1b3cff"
+          - generic [ref=e284]:
+            - generic [ref=e285]: colorHigh
+            - generic [ref=e288]:
+              - button [ref=e292] [cursor=pointer]
+              - textbox [ref=e295]: "#ff4d2e"
+      - generic [ref=e296]:
+        - button "Overlays" [ref=e297] [cursor=pointer]:
+          - generic [ref=e298]: Overlays
+        - generic [ref=e301]:
+          - generic [ref=e302]:
+            - generic [ref=e303]: quadtree
+            - generic [ref=e306]:
+              - checkbox [checked]
+              - img [ref=e308] [cursor=pointer]
+          - generic [ref=e310]:
+            - generic [ref=e311]: centers of mass
+            - generic [ref=e314]:
+              - checkbox
+              - img [ref=e316] [cursor=pointer]
+          - generic [ref=e318]:
+            - generic [ref=e319]: velocity field
+            - generic [ref=e322]:
+              - checkbox
+              - img [ref=e324] [cursor=pointer]
+          - generic [ref=e326]:
+            - generic [ref=e327]: probe interactions
+            - generic [ref=e330]:
+              - checkbox [checked]
+              - img [ref=e332] [cursor=pointer]
+  - generic [ref=e335]:
+    - button "metrics" [ref=e336] [cursor=pointer]:
+      - generic [ref=e337]: metrics
+    - generic [ref=e339]:
+      - generic [ref=e340]:
+        - generic [ref=e341]: fps
+        - textbox [ref=e344]: "0"
+      - img [ref=e348]
+      - generic [ref=e349]:
+        - generic [ref=e350]: frame
+        - textbox [ref=e353]: 0.00 ms
+      - img [ref=e357]
+      - generic [ref=e358]:
+        - generic [ref=e359]: compute
+        - textbox [ref=e362]: 0.000 ms
+      - img [ref=e366]
+      - generic [ref=e367]:
+        - generic [ref=e368]: bh nodes
+        - textbox [ref=e371]: "0"
+      - generic [ref=e372]:
+        - generic [ref=e373]: gpu buffers
+        - textbox [ref=e376]: 0.6 MB
+      - generic [ref=e377]:
+        - generic [ref=e378]: js heap
+        - textbox [ref=e381]: 0 MB
+  - generic:
+    - generic: ▶ running
+    - generic:
+      - generic: /
+      - text: toggle debug + inspector
+    - generic:
+      - generic: m
+      - text: switch solver
+    - generic:
+      - generic: p
+      - text: pause / resume
+    - generic:
+      - generic: r
+      - text: re-seed particles
+    - generic:
+      - generic: drag
+      - text: pan
+    - generic:
+      - generic: wheel
+      - text: zoom to cursor

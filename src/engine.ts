@@ -17,6 +17,14 @@ import {
   addNaiveProbe,
 } from "./render/overlayGeometry";
 import { Metrics } from "./ui/metrics";
+import {
+  beginComputePass,
+  endComputePass,
+  beginParticlePass,
+  endParticlePass,
+  beginOverlayPass,
+  endOverlayPass,
+} from "./gpu/inspectorHooks";
 
 function hex(s: string): [number, number, number] {
   const n = parseInt(s.replace("#", ""), 16);
@@ -230,17 +238,19 @@ export class Engine {
   }
 
   frame(): void {
-    const { width, height } = resizeCanvas(this.ctx.canvas);
+    const { width, height } = resizeCanvas(this.ctx);
     const aspect = width / height;
     this.writeSimParams();
     this.writeRenderParams(aspect);
 
     const useBh = config.mode === "barnesHut" && this.treeReady;
     const input = this.cur;
+    const profile = this.debug;
 
     const enc = this.dev.createCommandEncoder();
 
     if (!this.paused) {
+      if (profile) beginComputePass(this.ctx.renderer, useBh);
       const tsWrites = this.querySet
         ? { querySet: this.querySet, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 }
         : undefined;
@@ -249,6 +259,7 @@ export class Engine {
       cpass.setBindGroup(0, useBh ? this.bhGroup[input] : this.naiveGroup[input]);
       cpass.dispatchWorkgroups(Math.ceil(this.count / WG));
       cpass.end();
+      if (profile) endComputePass(this.ctx.renderer);
 
       this.cur = 1 - this.cur;
 
@@ -262,18 +273,22 @@ export class Engine {
     const rpass = enc.beginRenderPass({
       colorAttachments: [{ view, clearValue: { r: 0, g: 0, b: 0, a: 1 }, loadOp: "clear", storeOp: "store" }],
     });
+    if (profile) beginParticlePass(this.ctx.renderer);
     rpass.setPipeline(this.particle);
     rpass.setBindGroup(0, this.particleGroup[this.cur]);
     rpass.draw(6, this.count);
+    if (profile) endParticlePass(this.ctx.renderer);
 
     const overlayVerts = this.debug ? this.buildOverlay() : null;
     if (overlayVerts && overlayVerts.length > 0) {
+      if (profile) beginOverlayPass(this.ctx.renderer);
       this.ensureOverlayBuffer(overlayVerts.byteLength);
       this.dev.queue.writeBuffer(this.overlayBuf, 0, overlayVerts as BufferSource);
       rpass.setPipeline(this.overlay);
       rpass.setBindGroup(0, this.overlayGroup);
       rpass.setVertexBuffer(0, this.overlayBuf);
       rpass.draw(overlayVerts.length / 6);
+      if (profile) endOverlayPass(this.ctx.renderer);
     }
     rpass.end();
 

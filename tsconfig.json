@@ -14,7 +14,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["@webgpu/types", "vite/client"]
+    "types": ["@webgpu/types", "@types/three", "vite/client"]
   },
   "include": ["src", "src/wgsl.d.ts"]
 }

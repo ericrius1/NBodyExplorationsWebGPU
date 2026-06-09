@@ -8,6 +8,10 @@
       :root { color-scheme: dark; }
       html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
       #gpu-canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+      #profiler-shell { z-index: 10000; pointer-events: none; }
+      #profiler-shell #profiler-toggle,
+      #profiler-shell #profiler-panel,
+      #profiler-shell #profiler-mini-panel { pointer-events: auto; }
       #no-webgpu {
         position: fixed; inset: 0; display: none; place-items: center;
         color: #ddd; font: 14px/1.5 ui-monospace, monospace; text-align: center; padding: 2rem;
