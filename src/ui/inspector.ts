@@ -1,5 +1,5 @@
 // Custom debug inspector for the raw-WebGPU engine, styled after the
-// three.js examples inspector: a collapsed top-right FPS button that expands
+// three.js examples inspector: a collapsed top-right timing button that expands
 // a bottom-docked tabbed panel (Performance / Memory).
 
 export interface MemoryRow {
@@ -128,8 +128,8 @@ export function buildInspector(caps: InspectorCaps): Inspector {
 
   const toggle = el("div", "");
   toggle.id = "nb-insp-toggle";
-  const toggleFps = el("span", "", "– FPS");
-  toggle.appendChild(toggleFps);
+  const toggleStats = el("span", "", "– ms");
+  toggle.appendChild(toggleStats);
   toggle.insertAdjacentHTML("beforeend", TOGGLE_ICON);
 
   const panel = el("div", "");
@@ -188,10 +188,10 @@ export function buildInspector(caps: InspectorCaps): Inspector {
     perfView.style.display = perf ? "" : "none";
     memView.style.display = perf ? "none" : "";
   };
-  perfTab.onclick = () => selectTab(true);
-  memTab.onclick = () => selectTab(false);
-  toggle.onclick = () => panel.classList.toggle("visible");
-  collapse.onclick = () => panel.classList.remove("visible");
+  perfTab.addEventListener("click", () => selectTab(true));
+  memTab.addEventListener("click", () => selectTab(false));
+  toggle.addEventListener("click", () => panel.classList.toggle("visible"));
+  collapse.addEventListener("click", () => panel.classList.remove("visible"));
 
   const fpsHistory = new Float32Array(GRAPH_SAMPLES);
   let fpsCount = 0;
@@ -231,6 +231,14 @@ export function buildInspector(caps: InspectorCaps): Inspector {
   };
 
   const ms = (v: number): string => `${v.toFixed(2)}`;
+  const computeMs = (f: InspectorFrame): number | null =>
+    caps.timestamp ? f.computeGpuMs : null;
+  const formatCompute = (f: InspectorFrame): string => {
+    const gpu = computeMs(f);
+    return gpu === null ? "–" : ms(gpu);
+  };
+  const formatSummary = (f: InspectorFrame): string =>
+    `${f.fps.toFixed(0)} FPS  ·  ${ms(f.frameMs)} ms  ·  ${formatCompute(f)} ms compute`;
   const setPerfRow = (r: { cells: HTMLElement[] }, cpu: number, gpu: number | null): void => {
     r.cells[0].textContent = ms(cpu);
     r.cells[1].textContent = gpu === null ? "–" : ms(gpu);
@@ -256,10 +264,10 @@ export function buildInspector(caps: InspectorCaps): Inspector {
     if (now - lastText < 250) return;
     lastText = now;
 
-    toggleFps.textContent = `${f.fps.toFixed(0)} FPS`;
+    toggleStats.textContent = `${ms(f.frameMs)} ms  ·  ${formatCompute(f)} ms cmp`;
     if (!panel.classList.contains("visible")) return;
 
-    graphSection.value.textContent = `${f.fps.toFixed(0)} FPS`;
+    graphSection.value.textContent = formatSummary(f);
 
     const gpu = caps.timestamp ? f.computeGpuMs : null;
     solverRow.cells[0].parentElement!.querySelector(".nb-name")!.textContent = f.solverLabel;
@@ -271,7 +279,7 @@ export function buildInspector(caps: InspectorCaps): Inspector {
     miscRow.cells[0].textContent = ms(misc);
     miscRow.cells[2].textContent = ms(misc);
     frameSection.value.textContent =
-      `CPU ${ms(f.solverCpuMs + f.particlesCpuMs + f.overlayCpuMs)}  ·  GPU ${gpu === null ? "–" : ms(gpu)}  ·  frame ${ms(f.frameMs)} ms`;
+      `${formatSummary(f)}  ·  CPU ${ms(f.solverCpuMs + f.particlesCpuMs + f.overlayCpuMs)}  ·  GPU ${gpu === null ? "–" : ms(gpu)}`;
 
     if (memView.style.display !== "none") {
       const rows = f.getMemory();
