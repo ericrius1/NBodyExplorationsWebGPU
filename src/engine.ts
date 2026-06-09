@@ -5,6 +5,8 @@ import { generateInitData } from "./sim/initData";
 import { buildQuadTree, NODE_FLOATS, type QuadTree } from "./sim/quadtree";
 import { createNaivePipeline } from "./sim/naivePipeline";
 import { createBhPipeline } from "./sim/bhPipeline";
+import { PyramidSolver } from "./sim/pyramidPipeline";
+import { buildCpuPyramid, type CpuPyramid } from "./sim/pyramidCpu";
 import { createParticlePipeline } from "./render/particlePipeline";
 import { createOverlayPipeline } from "./render/overlayPipeline";
 import { Camera } from "./render/camera";
@@ -15,6 +17,9 @@ import {
   addVelocityField,
   addProbe,
   addNaiveProbe,
+  addPyramidCells,
+  addPyramidCOM,
+  addPyramidProbe,
 } from "./render/overlayGeometry";
 import { Metrics } from "./ui/metrics";
 import {
@@ -44,6 +49,7 @@ export class Engine {
 
   private naive: GPUComputePipeline;
   private bh: GPUComputePipeline;
+  private pyr: PyramidSolver;
   private particle: GPURenderPipeline;
   private overlay: GPURenderPipeline;
 
@@ -70,6 +76,7 @@ export class Engine {
 
   private tree: QuadTree | null = null;
   private treeReady = false;
+  private pyrMirror: CpuPyramid | null = null;
   private probe = 0;
 
   private bodyMapInFlight = false;
@@ -80,6 +87,8 @@ export class Engine {
   private tsMapInFlight = false;
 
   private lastRefresh = 0;
+  private lastMirror = 0;
+  private lastVizReadback = 0;
   private onRefresh: (() => void) | null = null;
 
   constructor(ctx: GpuContext) {
@@ -92,6 +101,7 @@ export class Engine {
 
     this.simParams = this.dev.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.renderParams = this.dev.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.pyr = new PyramidSolver(this.dev, this.simParams);
 
     if (ctx.hasTimestamp) {
       this.querySet = this.dev.createQuerySet({ type: "timestamp", count: 2 });
@@ -133,7 +143,12 @@ export class Engine {
     this.cur = 0;
     this.tree = null;
     this.treeReady = false;
+    this.pyrMirror = null;
     this.probe = 0;
+
+    let totalMass = 0;
+    for (let i = 0; i < this.count; i++) totalMass += this.cpuMass[i];
+    this.pyr.rebuild(this.count, totalMass, this.bodies, this.mass);
 
     this.buildComputeGroups();
     this.buildParticleGroups();
@@ -233,7 +248,8 @@ export class Engine {
   }
 
   private updateMemoryMetric(): void {
-    const bytes = this.count * 16 * 2 + this.count * 4 + this.nodesCapBytes + this.overlayCapBytes + 96;
+    const bytes =
+      this.count * 16 * 2 + this.count * 4 + this.nodesCapBytes + this.overlayCapBytes + this.pyr.bufferBytes + 96;
     this.metrics.bufferMB = bytes / (1024 * 1024);
   }
 
@@ -243,25 +259,33 @@ export class Engine {
     this.writeSimParams();
     this.writeRenderParams(aspect);
 
-    const useBh = config.mode === "barnesHut" && this.treeReady;
-    const input = this.cur;
+    const mode = config.mode;
+    const useBh = mode === "barnesHut" && this.treeReady;
     const profile = this.debug;
 
     const enc = this.dev.createCommandEncoder();
 
     if (!this.paused) {
-      if (profile) beginComputePass(this.ctx.renderer, useBh);
+      const label = mode === "bhGpu" ? "Barnes–Hut (GPU pyramid)" : useBh ? "Barnes–Hut (CPU tree)" : "Naive O(n²)";
+      if (profile) beginComputePass(this.ctx.renderer, label);
       const tsWrites = this.querySet
         ? { querySet: this.querySet, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 }
         : undefined;
       const cpass = enc.beginComputePass(tsWrites ? { timestampWrites: tsWrites } : {});
-      cpass.setPipeline(useBh ? this.bh : this.naive);
-      cpass.setBindGroup(0, useBh ? this.bhGroup[input] : this.naiveGroup[input]);
-      cpass.dispatchWorkgroups(Math.ceil(this.count / WG));
+      const steps = Math.max(1, Math.floor(config.stepsPerFrame));
+      for (let s = 0; s < steps; s++) {
+        const parity = this.cur as 0 | 1;
+        if (mode === "bhGpu") {
+          this.pyr.encode(cpass, parity);
+        } else {
+          cpass.setPipeline(useBh ? this.bh : this.naive);
+          cpass.setBindGroup(0, useBh ? this.bhGroup[parity] : this.naiveGroup[parity]);
+          cpass.dispatchWorkgroups(Math.ceil(this.count / WG));
+        }
+        this.cur = 1 - this.cur;
+      }
       cpass.end();
       if (profile) endComputePass(this.ctx.renderer);
-
-      this.cur = 1 - this.cur;
 
       if (this.querySet && this.tsResolve && this.tsRead && !this.tsMapInFlight) {
         enc.resolveQuerySet(this.querySet, 0, 2, this.tsResolve, 0);
@@ -298,7 +322,8 @@ export class Engine {
     this.readTimestamps();
 
     this.metrics.tick();
-    this.metrics.nodes = this.tree ? this.tree.nodeCount : 0;
+    this.metrics.nodes =
+      mode === "bhGpu" ? this.pyr.nodeCount : this.tree && mode === "barnesHut" ? this.tree.nodeCount : 0;
     const now = performance.now();
     if (this.debug && this.onRefresh && now - this.lastRefresh > 250) {
       this.lastRefresh = now;
@@ -313,11 +338,18 @@ export class Engine {
   private needReadback(): boolean {
     if (this.needTree()) return true;
     if (!this.debug) return false;
-    return config.showVelocity || config.showProbe;
+    if (config.showVelocity || config.showProbe) return true;
+    return config.mode === "bhGpu" && (config.showQuadtree || config.showCenterOfMass);
   }
 
   private scheduleReadback(): void {
     if (this.bodyMapInFlight || !this.needReadback()) return;
+    if (!this.needTree()) {
+      // Viz-only readback: cap the GPU->CPU traffic at high particle counts.
+      const now = performance.now();
+      if (now - this.lastVizReadback < 100) return;
+      this.lastVizReadback = now;
+    }
     const src = this.bodies[this.cur];
     const bytes = this.count * 16;
     const enc = this.dev.createCommandEncoder();
@@ -329,8 +361,22 @@ export class Engine {
       this.cpuBodies.set(new Float32Array(staging.getMappedRange()).subarray(0, this.count * 4));
       staging.unmap();
       this.bodyMapInFlight = false;
-      if (this.needTree()) this.rebuildTree();
-      else if (this.debug && config.showProbe) this.pickProbe();
+      if (this.needTree()) {
+        this.rebuildTree();
+      } else {
+        // The CPU mirror is viz-only; rebuilding it every readback costs
+        // O(n) JS time, so throttle it at high particle counts.
+        const wantMirror =
+          config.mode === "bhGpu" &&
+          this.debug &&
+          (config.showQuadtree || config.showCenterOfMass || config.showProbe);
+        const now = performance.now();
+        if (wantMirror && now - this.lastMirror > 250) {
+          this.lastMirror = now;
+          this.pyrMirror = buildCpuPyramid(this.cpuBodies, this.cpuMass, this.count, this.pyr.finestLevel);
+        }
+        if (this.debug && config.showProbe) this.pickProbe();
+      }
     }).catch(() => { this.bodyMapInFlight = false; });
   }
 
@@ -363,6 +409,13 @@ export class Engine {
       if (this.tree && config.showQuadtree) addQuadtreeCells(lb, this.tree, 12000);
       if (this.tree && config.showCenterOfMass) addCentersOfMass(lb, this.tree, 4000);
       if (this.tree && config.showProbe) addProbe(lb, this.tree, this.cpuBodies, this.probe, config.theta, config.softening);
+    } else if (config.mode === "bhGpu") {
+      const pyr = this.pyrMirror;
+      if (pyr && config.showQuadtree) addPyramidCells(lb, pyr, 6);
+      if (pyr && config.showCenterOfMass) addPyramidCOM(lb, pyr, 6);
+      if (pyr && config.showProbe && this.cpuBodies.length) {
+        addPyramidProbe(lb, pyr, this.cpuBodies, this.probe, config.theta, config.softening);
+      }
     } else if (config.showProbe && this.cpuBodies.length) {
       addNaiveProbe(lb, this.cpuBodies, this.probe, this.count, 6000);
     }

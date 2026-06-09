@@ -34,6 +34,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   var acc = vec2f(0.0, 0.0);
 
   let theta2 = P.theta * P.theta;
+  let eps2 = P.softening * P.softening;
 
   var stack: array<i32, 64>;
   var sp: i32 = 0;
@@ -48,7 +49,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
     let n = nodes[stack[sp]];
 
     let d = n.com - pos;
-    let r2 = dot(d, d) + P.softening;
+    let r2 = dot(d, d) + eps2;
     let w = n.half * 2.0;
     let leaf = n.children.x < 0 && n.children.y < 0 && n.children.z < 0 && n.children.w < 0;
 

@@ -1,8 +1,9 @@
-export type Mode = "naive" | "barnesHut";
+export type Mode = "naive" | "barnesHut" | "bhGpu";
 
 export interface Config {
   numParticles: number;
   mode: Mode;
+  stepsPerFrame: number;
   gravity: number;
   timeStep: number;
   softening: number;
@@ -26,11 +27,12 @@ export interface Config {
 }
 
 export const config: Config = {
-  numParticles: 16000,
-  mode: "barnesHut",
+  numParticles: 100000,
+  mode: "bhGpu",
+  stepsPerFrame: 1,
   gravity: 0.0000016,
   timeStep: 0.01,
-  softening: 0.004,
+  softening: 0.05,
   theta: 0.75,
   damping: 1.0,
   maxSpeed: 1.5,
@@ -58,11 +60,12 @@ export interface Control {
 }
 
 export const CONTROLS: Control[] = [
-  { key: "mode", folder: "Simulation", opts: { options: { "naive O(n^2)": "naive", "barnes-hut": "barnesHut" } } },
-  { key: "numParticles", folder: "Simulation", rebuild: "last", opts: { min: 256, max: 200000, step: 256 } },
+  { key: "mode", folder: "Simulation", opts: { options: { "naive O(n^2)": "naive", "barnes-hut (CPU tree)": "barnesHut", "barnes-hut (GPU pyramid)": "bhGpu" } } },
+  { key: "numParticles", folder: "Simulation", rebuild: "last", opts: { min: 256, max: 2000000, step: 256 } },
+  { key: "stepsPerFrame", folder: "Simulation", opts: { min: 1, max: 64, step: 1, label: "steps / frame" } },
   { key: "gravity", folder: "Physics", rebuild: "last", opts: { min: 0, max: 0.00012, step: 0.000001 } },
   { key: "timeStep", folder: "Physics", opts: { min: 0.001, max: 0.025, step: 0.0005, label: "dt" } },
-  { key: "softening", folder: "Physics", opts: { min: 0.001, max: 0.03, step: 0.0005 } },
+  { key: "softening", folder: "Physics", opts: { min: 0.001, max: 0.2, step: 0.0005 } },
   { key: "theta", folder: "Physics", opts: { min: 0.1, max: 2.0, step: 0.01, label: "theta (BH)" } },
   { key: "damping", folder: "Physics", opts: { min: 0.95, max: 1.0, step: 0.0005 } },
   { key: "maxSpeed", folder: "Physics", opts: { min: 0.05, max: 2.0, step: 0.05, label: "max speed" } },

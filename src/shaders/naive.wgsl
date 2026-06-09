@@ -30,6 +30,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(local_invocation_id)
   }
 
   var acc = vec2f(0.0, 0.0);
+  let eps2 = P.softening * P.softening;
   let tiles = (P.count + TILE - 1u) / TILE;
 
   for (var t: u32 = 0u; t < tiles; t = t + 1u) {
@@ -45,7 +46,7 @@ fn main(@builtin(global_invocation_id) gid: vec3u, @builtin(local_invocation_id)
     for (var k: u32 = 0u; k < TILE; k = k + 1u) {
       let o = shared_pos[k];
       let d = o.xy - pos;
-      let r2 = dot(d, d) + P.softening;
+      let r2 = dot(d, d) + eps2;
       let inv = P.g * o.z / (r2 * sqrt(r2));
       acc = acc + d * inv;
     }

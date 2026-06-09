@@ -1,5 +1,5 @@
 import { initGpu } from "./gpu/context";
-import { collapseInspector, setInspectorVisible } from "./gpu/inspectorHooks";
+import { collapseInspector, dockInspectorBottom, setInspectorVisible } from "./gpu/inspectorHooks";
 import { Engine } from "./engine";
 import { config } from "./state";
 import { buildPane } from "./ui/pane";
@@ -17,6 +17,7 @@ async function start(): Promise<void> {
     return;
   }
 
+  dockInspectorBottom(ctx.renderer);
   collapseInspector();
 
   const engine = new Engine(ctx);
@@ -35,7 +36,7 @@ async function start(): Promise<void> {
       syncDebug();
     },
     toggleMode: () => {
-      config.mode = config.mode === "naive" ? "barnesHut" : "naive";
+      config.mode = config.mode === "naive" ? "barnesHut" : config.mode === "barnesHut" ? "bhGpu" : "naive";
       pane.refresh();
     },
     togglePause: () => {
@@ -47,6 +48,7 @@ async function start(): Promise<void> {
 
   if (import.meta.env.DEV) {
     (window as unknown as { engine: Engine }).engine = engine;
+    (window as unknown as { simConfig: typeof config }).simConfig = config;
   }
 
   ctx.renderer.setAnimationLoop(() => {

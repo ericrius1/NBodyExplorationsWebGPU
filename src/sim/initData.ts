@@ -11,6 +11,11 @@ function randn(): number {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
 
+// Total disk mass is constant regardless of particle count, so numParticles
+// acts as a resolution knob: per-particle masses (and forces) scale as 1/n and
+// the dynamics stay identical. massMin/massMax control the relative spread.
+const TOTAL_MASS = 40960;
+
 export function generateInitData(cfg: Config): InitData {
   const n = cfg.numParticles;
   const bodies = new Float32Array(n * 4);
@@ -22,6 +27,9 @@ export function generateInitData(cfg: Config): InitData {
     masses[i] = m;
     total += m;
   }
+  const norm = TOTAL_MASS / total;
+  for (let i = 0; i < n; i++) masses[i] *= norm;
+  total = TOTAL_MASS;
 
   const R = cfg.spawnRadius;
   for (let i = 0; i < n; i++) {
@@ -31,7 +39,7 @@ export function generateInitData(cfg: Config): InitData {
     const y = Math.sin(a) * r;
 
     const mEnc = total * ((r * r) / (R * R));
-    const rEff = Math.sqrt(r * r + cfg.softening);
+    const rEff = Math.sqrt(r * r + cfg.softening * cfg.softening);
     const vCirc = Math.sqrt((cfg.gravity * mEnc) / rEff);
 
     const tx = -Math.sin(a);

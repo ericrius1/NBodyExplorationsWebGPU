@@ -27,10 +27,22 @@ export function collapseInspector(): void {
   document.getElementById("profiler-mini-panel")?.classList.remove("visible", "panel-open");
 }
 
-export function beginComputePass(renderer: WebGPURenderer, barnesHut: boolean): void {
+// Profiler is not part of the addon's public types; saved layouts can restore
+// the panel docked to the right, so force the examples-style bottom dock.
+type ProfilerLike = {
+  position: "bottom" | "right";
+  setPosition(position: "bottom" | "right"): void;
+};
+
+export function dockInspectorBottom(renderer: WebGPURenderer): void {
+  const profiler = (renderer.inspector as unknown as { profiler?: ProfilerLike } | null)?.profiler;
+  if (profiler && profiler.position !== "bottom") profiler.setPosition("bottom");
+}
+
+export function beginComputePass(renderer: WebGPURenderer, label: string): void {
   const insp = inspector(renderer);
   if (!insp) return;
-  computeStub.name = barnesHut ? "Barnes–Hut" : "Naive O(n²)";
+  computeStub.name = label;
   insp.beginCompute(frameUid(renderer, "compute"), computeStub);
 }
 

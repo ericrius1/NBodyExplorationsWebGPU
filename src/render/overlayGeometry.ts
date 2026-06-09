@@ -1,4 +1,5 @@
 import type { QuadTree } from "../sim/quadtree";
+import { traverseCpuPyramid, type CpuPyramid } from "../sim/pyramidCpu";
 
 export type RGBA = [number, number, number, number];
 
@@ -52,6 +53,61 @@ export function addCentersOfMass(lb: LineBuilder, tree: QuadTree, maxNodes: numb
     const r = Math.min(0.04, 0.002 + Math.cbrt(m) * 0.0015);
     lb.cross(tree.f32[n * 8], tree.f32[n * 8 + 1], r, color);
   }
+}
+
+// Occupied cells of the implicit pyramid at a fixed display level.
+export function addPyramidCells(lb: LineBuilder, pyr: CpuPyramid, maxLevel: number): void {
+  const color: RGBA = [0.2, 0.9, 0.45, 0.25];
+  const level = Math.min(pyr.finest, maxLevel);
+  const dim = 1 << level;
+  const cell = pyr.size / dim;
+  const lv = pyr.levels[level];
+  for (let iy = 0; iy < dim; iy++) {
+    for (let ix = 0; ix < dim; ix++) {
+      if (lv[(iy * dim + ix) * 3] <= 0) continue;
+      lb.rect(pyr.originX + (ix + 0.5) * cell, pyr.originY + (iy + 0.5) * cell, cell * 0.5, color);
+    }
+  }
+}
+
+export function addPyramidCOM(lb: LineBuilder, pyr: CpuPyramid, maxLevel: number): void {
+  const color: RGBA = [1.0, 0.3, 0.9, 0.7];
+  const level = Math.min(pyr.finest, maxLevel);
+  const lv = pyr.levels[level];
+  for (let c = 0; c < lv.length; c += 3) {
+    const m = lv[c];
+    if (m <= 0) continue;
+    const r = Math.min(0.04, 0.002 + Math.cbrt(m) * 0.0015);
+    lb.cross(lv[c + 1], lv[c + 2], r, color);
+  }
+}
+
+// Cells the GPU traversal accepts for the probe particle, mirrored on the CPU.
+export function addPyramidProbe(
+  lb: LineBuilder,
+  pyr: CpuPyramid,
+  bodies: Float32Array,
+  probe: number,
+  theta: number,
+  softening: number,
+): void {
+  const px = bodies[probe * 4];
+  const py = bodies[probe * 4 + 1];
+  const probeColor: RGBA = [1.0, 0.95, 0.2, 1.0];
+  const cellColor: RGBA = [1.0, 0.85, 0.1, 0.55];
+
+  lb.rect(px, py, 0.012, probeColor);
+
+  traverseCpuPyramid(pyr, px, py, theta, softening, (v) => {
+    const cell = pyr.size / (1 << v.level);
+    lb.rect(
+      pyr.originX + (v.ix + 0.5) * cell,
+      pyr.originY + (v.iy + 0.5) * cell,
+      cell * 0.5,
+      cellColor,
+    );
+    lb.line(px, py, v.comX, v.comY, cellColor);
+  });
 }
 
 export function addVelocityField(
@@ -116,7 +172,7 @@ export function addProbe(
     const comy = tree.f32[n * 8 + 1];
     const dx = comx - px;
     const dy = comy - py;
-    const r2 = dx * dx + dy * dy + softening;
+    const r2 = dx * dx + dy * dy + softening * softening;
     const w = tree.half[n] * 2;
     const c0 = tree.i32[n * 8 + 4];
     const c1 = tree.i32[n * 8 + 5];
